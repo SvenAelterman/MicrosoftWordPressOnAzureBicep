@@ -1,0 +1,4 @@
+*.bicepparam
+!sample.bicepparam
+
+parameters*
