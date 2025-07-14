@@ -42,6 +42,10 @@ param createLocks bool = true
 
 param acsEmailSenderAddress string = 'DoNotReply'
 
+param allowAllOriginsToAppService bool = false
+
+param emailDataLocation string = 'unitedstates'
+
 var diagnosticSettings = {
   workspaceResourceId: logAnalyticsWorkspaceResourceId
   name: 'customDiagnosticSetting'
@@ -49,7 +53,7 @@ var diagnosticSettings = {
 
 var storageAccountName = storageAccountNameModule.outputs.validName
 var databaseName = '${blobContainerName}_database'
-var blobContainerName = '${workloadName}${env}${sequence}2'
+var blobContainerName = '${workloadName}${env}${sequence}'
 
 var storageAccountKey1SecretName = 'storageAccountKey1'
 var wordPressAdminPasswordSecretName = 'wpAdminPassword'
@@ -106,14 +110,30 @@ module siteModule 'br/public:avm/res/web/site:0.16.0' = {
       linuxFxVersion: 'DOCKER|${containerRegistryUri}/${containerImage}:${containerImageVersion}'
       alwaysOn: true
       ftpsState: 'FtpsOnly'
-      //healthCheckPath: '/healthz'
-      // metadata: [
-      //   {
-      //     name: 'CURRENT_STACK'
-      //     value: 'dotnetcore'
-      //   }
-      // ]
+      //healthCheckPath: '/health' // TODO: Add health check path for WordPress
       minTlsVersion: '1.2'
+
+      ipSecurityRestrictions: [
+        {
+          ipAddress: 'AzureFrontDoor.Backend'
+          action: 'Allow'
+          tag: 'ServiceTag'
+          priority: 150
+          name: 'AllowFrontDoor'
+          headers: {
+            'x-azure-fdid': [
+              frontDoorProfileModule.outputs.frontDoorId
+            ]
+          }
+        }
+        {
+          ipAddress: 'Any'
+          action: allowAllOriginsToAppService ? 'Allow' : 'Deny'
+          priority: 2147483647
+          name: '${allowAllOriginsToAppService ? 'Allow' : 'Deny'} all'
+          description: '${allowAllOriginsToAppService ? 'Allow' : 'Deny'} all access'
+        }
+      ]
     }
 
     configs: [
@@ -139,8 +159,8 @@ module siteModule 'br/public:avm/res/web/site:0.16.0' = {
           ENABLE_MYSQL_MANAGED_IDENTITY: 'true'
           DATABASE_USERNAME: userAssignedIdentityModule.outputs.name
 
-          AFD_ENABLED: 'false' // TODO: enable AFD
-          // AFD_ENDPOINT: 'wpmainprod-681ba522f8-e4b8d2gcamayahe2.z01.azurefd.net' // TODO: Reference AFD endpoint
+          AFD_ENABLED: 'true'
+          AFD_ENDPOINT: frontDoorProfileModule.outputs.endpointUri
 
           BLOB_STORAGE_ENABLED: 'false'
           STORAGE_ACCOUNT_NAME: storageAccountName
@@ -321,6 +341,7 @@ module storageAccountModule 'br/public:avm/res/storage/storage-account:0.25.0' =
     kind: 'StorageV2'
     accessTier: 'Hot'
     enableHierarchicalNamespace: false
+    requireInfrastructureEncryption: true
     // Required for the App Service to access the storage account
     // (as configured here)
     allowSharedKeyAccess: true
@@ -438,6 +459,7 @@ module communicationServicesWrapperModule './modules/communicationServicesWrappe
     tags: tags
     enableTelemetry: enableTelemetry
 
+    emailDataLocation: emailDataLocation
     diagnosticSettings: diagnosticSettings
     createLocks: createLocks
     deploymentTime: deploymentTime
@@ -445,11 +467,47 @@ module communicationServicesWrapperModule './modules/communicationServicesWrappe
   }
 }
 
+// Azure Front Door Pass 1
+// Creates the profile so we can get the X-FDID to restrict the App Service
+module frontDoorProfileModule './modules/frontDoorProfile.bicep' = {
+  name: 'frontDoorProfileDeployment-${deploymentTime}'
+  params: {
+    afdProfileName: frontDoorProfileNameModule.outputs.validName
+    tags: tags
+
+    workloadName: workloadName
+    environment: env
+    sequence: sequence
+  }
+}
+
+// Azure Front Door Pass 2
+// Creates the resources that depend on App Service, Blob Storage, etc.
+module frontDoorOriginsModule './modules/frontDoorOrigins.bicep' = {
+  name: 'frontDoorOriginsDeployment-${deploymentTime}'
+  params: {
+    afdProfileName: frontDoorProfileModule.outputs.profileName
+    endpointName: frontDoorProfileModule.outputs.endpointName
+
+    sequence: sequence
+    environment: env
+    workloadName: workloadName
+
+    appServiceUri: siteModule.outputs.defaultHostname
+    blobStorageUri: '${storageAccountModule.outputs.name}.blob.${az.environment().suffixes.storage}'
+
+    blobContainerName: blobContainerName
+
+    customDomainName: wordPressCustomDomain
+  }
+}
+
 /*******************************************************************************
 OUTPUTS
 ********************************************************************************/
 
-output siteUrl string = 'https://${siteModule.outputs.defaultHostname}'
+output appServiceUrl string = 'https://${siteModule.outputs.defaultHostname}'
+output frontDoorUri string = frontDoorProfileModule.outputs.endpointUri
 
 /*******************************************************************************
 EXISTING RESOURCES
@@ -470,6 +528,7 @@ resource dbSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-07-01' existin
   parent: virtualNetwork
 }
 
+#disable-next-line no-unused-existing-resources
 resource peSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-07-01' existing = {
   name: subnetForPrivateEndpoints
   parent: virtualNetwork
@@ -478,6 +537,8 @@ resource peSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-07-01' existin
 /*******************************************************************************
 NAME GENERATION MODULES
 ********************************************************************************/
+
+// LATER: Move all resource name generation to a single module
 
 module siteNameModule './modules/createValidAzResourceName.bicep' = {
   name: 'siteNameDeployment-${deploymentTime}'
@@ -576,6 +637,19 @@ module communicationServiceNameModule './modules/createValidAzResourceName.bicep
     workloadName: workloadName
     environment: env
     resourceType: 'acs'
+    location: resourceGroup().location
+    sequence: sequence
+    namingConvention: namingConvention
+    alwaysUseShortLocation: true
+  }
+}
+
+module frontDoorProfileNameModule './modules/createValidAzResourceName.bicep' = {
+  name: 'afdProfileNameDeployment-${deploymentTime}'
+  params: {
+    workloadName: workloadName
+    environment: env
+    resourceType: 'afd'
     location: resourceGroup().location
     sequence: sequence
     namingConvention: namingConvention

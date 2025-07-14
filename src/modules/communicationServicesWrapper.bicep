@@ -8,6 +8,7 @@ param acsEmailSenderDisplayName string = 'Do Not Reply'
 param enableTelemetry bool
 param diagnosticSettings object
 param uamiPrincipalId string
+param emailDataLocation string
 
 module communicationServiceModule './communicationService.bicep' = {
   name: 'communicationServiceDeployment-${deploymentTime}'
@@ -18,7 +19,7 @@ module communicationServiceModule './communicationService.bicep' = {
 
     diagnosticSettings: [diagnosticSettings]
 
-    dataLocation: 'United States'
+    dataLocation: emailDataLocation
     linkedDomains: [
       emailServiceModule.outputs.domainResourceIds[0]
     ]
@@ -39,7 +40,7 @@ module emailServiceModule 'br/public:avm/res/communication/email-service:0.3.3' 
     tags: tags
     enableTelemetry: enableTelemetry
 
-    dataLocation: 'United States'
+    dataLocation: emailDataLocation
 
     domains: [
       {

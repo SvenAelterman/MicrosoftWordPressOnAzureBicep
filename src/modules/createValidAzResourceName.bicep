@@ -28,6 +28,7 @@ param location string
   'gal' // Azure Compute Gallery
   'acs' // Azure Communication Service
   'acs-email' // Azure Communication Service Email
+  'afd' // Azure Front Door
 ])
 param resourceType string
 param environment string
@@ -139,6 +140,11 @@ var Defs = {
   'acs-email': {
     lowerCase: false
     maxLength: 63
+    allowedSegmentSeparators: ['-']
+  }
+  afd: {
+    lowerCase: false
+    maxLength: 64
     allowedSegmentSeparators: ['-']
   }
 }
