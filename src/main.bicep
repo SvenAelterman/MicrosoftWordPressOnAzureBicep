@@ -126,14 +126,9 @@ module siteModule 'br/public:avm/res/web/site:0.16.0' = {
             ]
           }
         }
-        {
-          ipAddress: 'Any'
-          action: allowAllOriginsToAppService ? 'Allow' : 'Deny'
-          priority: 2147483647
-          name: '${allowAllOriginsToAppService ? 'Allow' : 'Deny'} all'
-          description: '${allowAllOriginsToAppService ? 'Allow' : 'Deny'} all access'
-        }
       ]
+      ipSecurityRestrictionsDefaultAction: allowAllOriginsToAppService ? 'Allow' : 'Deny'
+      scmIpSecurityRestrictionsUseMain: false
     }
 
     configs: [
