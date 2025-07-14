@@ -26,6 +26,9 @@ param location string
   'dplscr' // Deployment Script
   'log' // Log Analytics Workspace
   'gal' // Azure Compute Gallery
+  'acs' // Azure Communication Service
+  'acs-email' // Azure Communication Service Email
+  'afd' // Azure Front Door
 ])
 param resourceType string
 param environment string
@@ -128,6 +131,21 @@ var Defs = {
     lowerCase: false
     maxLength: 80
     allowedSegmentSeparators: ['_', '.']
+  }
+  acs: {
+    lowerCase: false
+    maxLength: 63
+    allowedSegmentSeparators: ['-']
+  }
+  'acs-email': {
+    lowerCase: false
+    maxLength: 63
+    allowedSegmentSeparators: ['-']
+  }
+  afd: {
+    lowerCase: false
+    maxLength: 64
+    allowedSegmentSeparators: ['-']
   }
 }
 
