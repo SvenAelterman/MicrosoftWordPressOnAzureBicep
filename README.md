@@ -11,6 +11,20 @@ This deployment is based on the [Azure Marketplace offering](https://portal.azur
 - Stores secrets in Key Vault.
 - Uses private endpoints for Storage and Key Vault.
 
+## Future enhancements
+
+- Restrict App Service to accept connections only from Front Door.
+- Custom email domain
+
 ## Other differences
 
 - No custom Portal UI
+
+## References
+
+<https://github.com/Azure/wordpress-linux-appservice>
+
+## After deployment steps
+
+1. Activate the WordPress plugins.
+1. Ensure a custom email domain (if specified) is configured.
