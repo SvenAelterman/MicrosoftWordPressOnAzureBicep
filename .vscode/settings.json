@@ -1,11 +1,13 @@
 {
   "cSpell.words": [
     "appsettings",
+    "appsvc",
     "azurefd",
     "connectionstrings",
     "MULTISITE",
     "PHPMYADMIN",
     "serverfarm",
-    "vnetrg"
+    "vnetrg",
+    "wpadmin"
   ]
 }
