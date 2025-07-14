@@ -36,8 +36,11 @@ param wordPressAdminUser string = 'admin'
 param wordPressAdminEmail string
 @secure()
 param wordPressAdminPassword string
+param wordPressSiteTitle string = 'WordPress on Azure'
 
 param createLocks bool = true
+
+param acsEmailSenderAddress string = 'DoNotReply'
 
 var diagnosticSettings = {
   workspaceResourceId: logAnalyticsWorkspaceResourceId
@@ -126,9 +129,11 @@ module siteModule 'br/public:avm/res/web/site:0.16.0' = {
           WORDPRESS_LOCALE_CODE: 'en_US'
           WORDPRESS_MULTISITE_TYPE: 'subdirectory'
           WORDPRESS_MULTISITE_CONVERT: 'true'
-          //WORDPRESS_TITLE: 'Testing setting a title'
+          WORDPRESS_TITLE: wordPressSiteTitle
           CUSTOM_DOMAIN: wordPressCustomDomain
           SETUP_PHPMYADMIN: 'true'
+          // Must be disabled because this is designed for a scale-out scenario
+          // https://github.com/Azure/wordpress-linux-appservice/blob/main/WordPress/enabling_high_performance_with_local_storage.md#limitations
           WORDPRESS_LOCAL_STORAGE_CACHE_ENABLED: 'false'
           ENTRA_CLIENT_ID: userAssignedIdentityModule.outputs.clientId
           ENABLE_MYSQL_MANAGED_IDENTITY: 'true'
@@ -144,9 +149,9 @@ module siteModule 'br/public:avm/res/web/site:0.16.0' = {
           // Differs from Azure Marketplace template, which doesn't use Key Vault
           STORAGE_ACCOUNT_KEY: '@Microsoft.KeyVault(VaultName=${keyVaultModule.outputs.name};SecretName=${storageAccountKey1SecretName})'
 
-          // TODO: Enable email settings
-          // WP_EMAIL_CONNECTION_STRING: 'endpoint=https://${reference_variables_acsAccountId_hostName.hostName};senderaddress=${variables_acsSenderEmailAddress}@${reference_variables_ecsAccountId_mailFromSenderDomain.mailFromSenderDomain}'
-          // ENABLE_EMAIL_MANAGED_IDENTITY: 'true'
+          // Enable email settings
+          WP_EMAIL_CONNECTION_STRING: 'endpoint=https://${communicationServicesWrapperModule.outputs.hostName};senderaddress=${acsEmailSenderAddress}@${communicationServicesWrapperModule.outputs.emailServiceDomainName}'
+          ENABLE_EMAIL_MANAGED_IDENTITY: 'true'
         }
       }
       {
@@ -424,6 +429,26 @@ module keyVaultModule 'br/public:avm/res/key-vault/vault:0.13.0' = {
   }
 }
 
+module communicationServicesWrapperModule './modules/communicationServicesWrapper.bicep' = {
+  name: 'communicationServicesWrapperDeployment-${deploymentTime}'
+  params: {
+    communicationServiceName: communicationServiceNameModule.outputs.validName
+    emailServiceName: emailServiceNameModule.outputs.validName
+    acsEmailSenderAddress: acsEmailSenderAddress
+    tags: tags
+    enableTelemetry: enableTelemetry
+
+    diagnosticSettings: diagnosticSettings
+    createLocks: createLocks
+    deploymentTime: deploymentTime
+    uamiPrincipalId: userAssignedIdentityModule.outputs.principalId
+  }
+}
+
+/*******************************************************************************
+OUTPUTS
+********************************************************************************/
+
 output siteUrl string = 'https://${siteModule.outputs.defaultHostname}'
 
 /*******************************************************************************
@@ -525,6 +550,32 @@ module keyVaultNameModule './modules/createValidAzResourceName.bicep' = {
     workloadName: workloadName
     environment: env
     resourceType: 'kv'
+    location: resourceGroup().location
+    sequence: sequence
+    namingConvention: namingConvention
+    alwaysUseShortLocation: true
+  }
+}
+
+module emailServiceNameModule './modules/createValidAzResourceName.bicep' = {
+  name: 'emailServiceNameDeployment-${deploymentTime}'
+  params: {
+    workloadName: workloadName
+    environment: env
+    resourceType: 'acs-email'
+    location: resourceGroup().location
+    sequence: sequence
+    namingConvention: namingConvention
+    alwaysUseShortLocation: true
+  }
+}
+
+module communicationServiceNameModule './modules/createValidAzResourceName.bicep' = {
+  name: 'communicationServiceNameDeployment-${deploymentTime}'
+  params: {
+    workloadName: workloadName
+    environment: env
+    resourceType: 'acs'
     location: resourceGroup().location
     sequence: sequence
     namingConvention: namingConvention
