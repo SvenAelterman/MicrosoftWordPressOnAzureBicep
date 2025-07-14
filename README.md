@@ -9,16 +9,23 @@ This deployment is based on the [Azure Marketplace offering](https://portal.azur
 - No hardcoded values/references in the template.
 - Uses Azure Verified Modules.
 - Stores secrets in Key Vault.
-- Uses private endpoints for Storage and Key Vault.
+- Uses private endpoints for Storage and Key Vault (pending testing).
+- Restrict App Service to accept connections only from Front Door.
+- Support for custom domain on Azure Front Door.
+  - The impact of not setting the custom domain on the Azure App Service is untested at this point, but should be OK.
 
 ## Future enhancements
 
-- Restrict App Service to accept connections only from Front Door.
-- Custom email domain
+- Custom email domain support.
+- Support for custom WordPress domain hosted on Azure public DNS zone (easier configuration of Front Door).
+- Create a Web Application Firewall policy for Front Door.
+- Support for brining your own TLS certificate for your custom domain.
 
 ## Other differences
 
-- No custom Portal UI
+- No custom Portal UI.
+- Must bring your own virtual network. These templates do not create a virtual network or subnets.
+- Support for "premium" SKUs only.
 
 ## References
 
@@ -28,3 +35,5 @@ This deployment is based on the [Azure Marketplace offering](https://portal.azur
 
 1. Activate the WordPress plugins.
 1. Ensure a custom email domain (if specified) is configured.
+1. Ensure your custom WordPress domain name is configured in your DNS provider.
+1. Configure auto-scaling
