@@ -12,6 +12,7 @@ param dbSubnetId string
 param privateDnsZoneResourceId string
 param diagnosticSettings array
 param deploymentTime string
+param lock object
 
 module flexibleServerModule 'br/public:avm/res/db-for-my-sql/flexible-server:0.8.0' = {
   name: 'flexibleServerDeployment-${deploymentTime}'
@@ -59,11 +60,7 @@ module flexibleServerModule 'br/public:avm/res/db-for-my-sql/flexible-server:0.8
     storageIOPS: 400
     storageSizeGB: 64
 
-    lock: {
-      kind: 'CanNotDelete'
-      name: '${flexibleServerName}-lock'
-    }
-
+    lock: lock
     diagnosticSettings: diagnosticSettings
   }
 }
